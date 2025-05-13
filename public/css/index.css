@@ -1,0 +1,65 @@
+.bg-blue-transparent {
+  /* background-color: rgba(0, 123, 255, 0.2); */
+  padding: 20px;
+  border-radius: 15px;
+  /* color: #fff; */
+  text-shadow: 1px 1px 2px #000;
+}
+.logo-img {
+  width: 25%; /* 부모의 40% 너비 (또는 아래처럼 rem 단위 사용 가능) */
+  max-width: 20rem; /* 너무 커지지 않도록 최대치 제한 */
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.logo-fa {
+  padding: 20px;
+}
+.feature-card {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease;
+}
+.feature-card:hover p,
+.feature-card:hover i {
+  color: #000000 !important; /* 텍스트와 아이콘을 모두 검정색으로 */
+}
+.feature-card:hover {
+  transform: translateY(-5px);
+  background-color: white;
+}
+.bg-blue-transparent.simple {
+  width: 100%;
+  box-sizing: border-box;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+.upload-card {
+  width: 100%;
+  max-width: 500px;
+  background-color: #fff;
+  border-radius: 16px;
+}
+
+.upload-box {
+  border: 2px dashed #ccc;
+  border-radius: 12px;
+  background-color: #f9f9f9;
+}
+
+.progress {
+  height: 12px;
+  background-color: #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  background-color: #007bff;
+  color: white;
+  text-align: center;
+  transition: width 0.4s ease;
+}
