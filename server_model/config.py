@@ -1,7 +1,8 @@
+
 import os
 
 # 기본 경로 설정 (환경 변수에서 가져오거나 기본값 사용)
-BASE_DIR = os.getenv("BASE_DIR", "/Users/domwis/VSCode/SKALA/Yesiki/server") 
+BASE_DIR = os.getenv("BASE_DIR", "/Users/phoenix/Eagle/2025_FastAPI/service_model/model_serving/server")
 
 # 상대 경로를 연결할 때 슬래시(/) 제거
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploaded_files")
