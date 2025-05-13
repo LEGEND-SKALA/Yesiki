@@ -1,15 +1,15 @@
 # main.py
 from fastapi import FastAPI, APIRouter, File, UploadFile, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
-import weight_used_model
-import model
+from server_model import weight_used_model
+from server_model import model
 import importlib
 import pandas as pd
 import base64
 import os
 from datetime import datetime
 import pytz
-from config import UPLOAD_DIR, IMAGE_DIR, MODEL_IMG_DIR
+from server_model.config import UPLOAD_DIR, IMAGE_DIR, MODEL_IMG_DIR
 
 app = FastAPI()
 router = APIRouter()
@@ -23,10 +23,9 @@ os.makedirs(MODEL_IMG_DIR, exist_ok=True)
 timezone = pytz.timezone("Asia/Seoul")
 
 # 이미지를 Base64로 인코딩하여 반환
-
 def get_img(img_name):
     if not os.path.exists(img_name):
-        print(f"🚨 이미지 파일이 존재하지 않습니다: {img_name}")  # 디버깅용 로그 추가
+        print(f"🚨 이미지 파일이 존재하지 않습니다: {img_name}")
         raise HTTPException(status_code=404, detail="Image not found")
     try:
         with open(img_name, "rb") as f:
@@ -36,9 +35,7 @@ def get_img(img_name):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading image: {str(e)}")
 
-# CSV 파일 업로드 및 두 LSTM 모델 결과 처리
-import os
-
+# CSV 파일 업로드 및 모델 처리
 @router.post("/upload")
 async def post_data_set(file: UploadFile = File(...)):
     try:
@@ -46,44 +43,34 @@ async def post_data_set(file: UploadFile = File(...)):
         new_filename = f"{current_time}_{file.filename}"
         file_location = os.path.join(UPLOAD_DIR, new_filename)
 
-        # 업로드된 파일을 저장
+        # 업로드된 파일 저장
         with open(file_location, "wb") as f:
             f.write(await file.read())
 
-        # CSV 파일을 읽어와 데이터셋으로 처리
-        dataset = pd.read_csv(file_location, index_col='Date', parse_dates=['Date']).fillna('NaN')
+        # CSV 읽기 및 처리
+        dataset = pd.read_csv(file_location)
+        dataset['Date'] = pd.to_datetime(dataset[['연도', '월', '일']])
+        dataset.set_index('Date', inplace=True)
+        dataset.sort_index(inplace=True)
 
-        # 첫 번째 모델 처리
-        result_visualizing_LSTM, result_evaluating_LSTM = weight_used_model.process(dataset)
-
-        # 두 번째 모델 처리 (동적 로딩)
-                
+        # 모델 처리 (재학습 포함)
         importlib.reload(model)
-        print(dir(model))  # 현재 model 모듈이 로드한 함수 목록 출력
-
         result_visualizing_LSTM_v2, result_evaluating_LSTM_v2 = model.process(dataset)
-
-        # 🚨 이미지 파일 존재 여부 확인 추가
-        if not os.path.exists(result_visualizing_LSTM):
-            raise HTTPException(status_code=500, detail=f"File not found: {result_visualizing_LSTM}")
 
         if not os.path.exists(result_visualizing_LSTM_v2):
             raise HTTPException(status_code=500, detail=f"File not found: {result_visualizing_LSTM_v2}")
 
         return {
-            "result_visualizing_LSTM": get_img(result_visualizing_LSTM),
-            "result_evaluating_LSTM": result_evaluating_LSTM,
             "result_visualizing_LSTM_v2": get_img(result_visualizing_LSTM_v2),
             "result_evaluating_LSTM_v2": result_evaluating_LSTM_v2,
             "saved_filename": new_filename
         }
 
     except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))  # 404 Not Found 반환
+        raise HTTPException(status_code=404, detail=str(e))
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))  # 500 Internal Server Error 반환
-
+        raise HTTPException(status_code=500, detail=str(e))
 
 # 이미지 다운로드 엔드포인트
 @router.get("/download")
@@ -94,7 +81,7 @@ async def download():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 모델 아키텍처 이미지 다운로드 엔드포인트
+# 모델 구조 이미지 다운로드
 @router.get("/download_shapes")
 async def download_model_architecture_shapes():
     try:
@@ -103,7 +90,7 @@ async def download_model_architecture_shapes():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# HTML로 이미지 표시하는 엔드포인트 
+# HTML로 예측 이미지 표시
 @router.get("/view-download")
 async def view_downloaded_image():
     try:

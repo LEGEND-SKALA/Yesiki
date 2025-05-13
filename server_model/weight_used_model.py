@@ -84,7 +84,7 @@ import math
 from sklearn.metrics import mean_squared_error
 from keras.utils import plot_model
 import os
-from config import MODEL_DIR, IMAGE_DIR, MODEL_SAVE_PATH, DATA_PATH, MODEL_SHAPES_PLOT_PATH, PREDICTION_PLOT_PATH
+from server_model.config import MODEL_DIR, IMAGE_DIR, MODEL_SAVE_PATH, DATA_PATH, MODEL_SHAPES_PLOT_PATH, PREDICTION_PLOT_PATH
 
 # 모델 로딩
 model = load_model(MODEL_SAVE_PATH)
