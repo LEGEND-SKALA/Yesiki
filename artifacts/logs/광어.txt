@@ -1,0 +1,3 @@
+MAE: 0.0454
+RMSE: 0.0631
+Needs retraining: False
