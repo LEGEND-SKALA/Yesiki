@@ -62,3 +62,11 @@ def load_and_process(filename: str, target_column: str):
     scaled_df, scaler = preprocess_dataframe(raw_df, target_column)
     X, y = make_sequences(scaled_df, INPUT_DAYS, OUTPUT_DAYS, target_column)
     return X, y, scaler
+
+
+def load_combined_data(raw_filename: str, upload_filename: str) -> pd.DataFrame:
+    """원본 데이터 + 새 업로드 데이터를 병합한 전체 시계열 반환"""
+    raw_df = load_raw_data(raw_filename)
+    upload_df = load_raw_data(upload_filename)
+    combined_df = pd.concat([raw_df, upload_df]).drop_duplicates().sort_values(by='Date')
+    return combined_df
