@@ -1,3 +1,5 @@
+import base64
+from fastapi import HTTPException
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 import math
 import matplotlib.pyplot as plt
@@ -82,3 +84,16 @@ def load_scaler(fish_name, model_dir):
     if not os.path.exists(load_path):
         raise FileNotFoundError(f"Scaler not found for {fish_name} at {load_path}")
     return joblib.load(load_path)
+
+# 이미지를 Base64로 인코딩하여 반환
+def get_img(img_name):
+    if not os.path.exists(img_name):
+        print(f"🚨 이미지 파일이 존재하지 않습니다: {img_name}")  # 디버깅용 로그 추가
+        raise HTTPException(status_code=404, detail="Image not found")
+    try:
+        with open(img_name, "rb") as f:
+            img_byte_arr = f.read()
+        encoded = base64.b64encode(img_byte_arr)
+        return "data:image/png;base64," + encoded.decode('ascii')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading image: {str(e)}")
