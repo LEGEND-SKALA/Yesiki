@@ -72,16 +72,3 @@ def train_single_fish(fish_name: str, target_column: str, csv_filename: str):
         print(f"✅ [{fish_name}] 성능 양호 - 모델 사용 가능.")
 
     print(f"📦 Training completed for {fish_name}.\n")
-
-
-if __name__ == "__main__":
-    # 학습 대상 정의
-    targets = {
-        "광어": "광어 소비량(g)",
-        "연어": "연어 소비량(g)",
-        "장어": "장어 소비량(g)"
-    }
-    filename = "qooqoo_dummy_v0.12.csv"
-
-    for fish_name, target_column in targets.items():
-        train_single_fish(fish_name, target_column, filename)
