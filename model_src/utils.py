@@ -29,24 +29,27 @@ def plot_prediction(y_true, y_pred, save_path, scaler=None, target_column=None, 
     - scaler: 정규화에 사용된 MinMaxScaler
     - target_column: 복원할 열 이름 (필수)
     """
-    y_true = y_true.reshape(1, -1)
-    y_pred = y_pred.reshape(1, -1)
 
+    # 1. 입력을 1차원 벡터로 평탄화
+    y_true = np.ravel(y_true)
+    y_pred = np.ravel(y_pred)
+
+    # 2. shape mismatch 방지
+    if y_true.shape != y_pred.shape:
+        raise ValueError(f"[plot_prediction] Shape mismatch: y_true {y_true.shape}, y_pred {y_pred.shape}")
+
+    # ✅ 3. 역정규화 처리 (외부 함수 활용)
     if scaler is not None and target_column is not None:
-        # (1, 7) → (7, 1) → inverse_transform 후 다시 (1, 7)
-        y_true = scaler.inverse_transform(
-            np.hstack([np.zeros((y_true.shape[1], scaler.n_features_in_ - 1)), y_true.T])
-        )[:, -1].reshape(1, -1)
+        from utils import inverse_transform_target_only
+        y_true = inverse_transform_target_only(y_true, scaler)
+        y_pred = inverse_transform_target_only(y_pred, scaler)
 
-        y_pred = scaler.inverse_transform(
-            np.hstack([np.zeros((y_pred.shape[1], scaler.n_features_in_ - 1)), y_pred.T])
-        )[:, -1].reshape(1, -1)
-
-    days = [f"{i+1}day" for i in range(y_true.shape[1])]
+    # 4. Plot
+    days = [f"{i+1}day" for i in range(len(y_true))]
 
     plt.figure(figsize=(10, 5))
-    plt.plot(days, y_true.flatten(), label='Actual')
-    plt.plot(days, y_pred.flatten(), label='Predicted')
+    plt.plot(days, y_true, label='Actual')
+    plt.plot(days, y_pred, label='Predicted')
     plt.title(title)
     plt.xlabel('Day')
     plt.ylabel('Consumption (g)')
@@ -57,9 +60,13 @@ def plot_prediction(y_true, y_pred, save_path, scaler=None, target_column=None, 
 
 
 
-def calculate_metrics(y_true, y_pred):
-    mae = mean_absolute_error(y_true, y_pred)
-    rmse = math.sqrt(mean_squared_error(y_true, y_pred))
+
+def calculate_metrics(y_true, y_pred, scaler=None, target_column=None):
+    if scaler is not None and target_column is not None:
+        y_true = inverse_transform_target_only(y_true, scaler)
+        y_pred = inverse_transform_target_only(y_pred, scaler)
+    mae = np.mean(np.abs(y_true - y_pred))
+    rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
     return mae, rmse
 
 def needs_retraining(mae, rmse, threshold_mae, threshold_rmse):

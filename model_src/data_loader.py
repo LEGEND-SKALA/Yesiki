@@ -86,9 +86,8 @@ def load_combined_data(raw_filename: str, upload_filename: str, target_column: s
 
     # 정규화 및 분할
     scaled_df, scaler = preprocess_dataframe(recent_df, target_column)
-    feature_df = scaled_df.drop(columns=[target_column])
-    X = feature_df.values
-    y = scaled_df[target_column].values
+    X, y = make_sequences(scaled_df, INPUT_DAYS, OUTPUT_DAYS, target_column)
+
 
     return X, y, scaler
 

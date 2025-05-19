@@ -58,7 +58,7 @@ async def upload(file: UploadFile = File(...)):
 
             # 3. Predict
             y_pred = model.predict(X_input)[0]
-            mae, rmse = calculate_metrics(y_true_data, y_pred)
+            mae, rmse = calculate_metrics(y_true_data, y_pred, scaler, target_column)
             print(f"📊 MAE: {mae:.2f}, RMSE: {rmse:.2f}")
 
             retrained = False

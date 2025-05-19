@@ -52,7 +52,7 @@ def main(upload_filename):
 
             # 3. Predict
             y_pred = model.predict(X_input)[0]
-            mae, rmse = calculate_metrics(y_true_data, y_pred)
+            mae, rmse = calculate_metrics(y_true_data, y_pred, scaler, target_column)
             print(f"📊 MAE: {mae:.2f}, RMSE: {rmse:.2f}")
 
             retrained = False
@@ -79,7 +79,7 @@ def main(upload_filename):
             result_dir = os.path.join(RESULT_DIR, fish_name)
             os.makedirs(result_dir, exist_ok=True)
             img_path = os.path.join(result_dir, "sample_prediction_debug.png")
-            plot_prediction(y_true_data[:1], y_pred[:1], img_path, scaler, target_column)
+            plot_prediction(y_true_data, y_pred, img_path, scaler, target_column)
             encoded_img = get_img(img_path)
 
             # 6. Inverse transform for total prediction
