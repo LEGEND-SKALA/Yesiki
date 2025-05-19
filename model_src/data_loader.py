@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
-from config import RAW_DATA_DIR, PROCESSED_DATA_DIR, INPUT_DAYS, OUTPUT_DAYS
+from config import RAW_DATA_DIR, INPUT_DAYS, OUTPUT_DAYS
 
 def load_raw_data(filename: str) -> pd.DataFrame:
     """원본 CSV 파일 로딩 후 날짜 컬럼 생성"""
