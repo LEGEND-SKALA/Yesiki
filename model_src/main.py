@@ -2,6 +2,7 @@ from fastapi import FastAPI, APIRouter, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 import os
 import numpy as np
+import traceback
 
 from config import RAW_DATA_DIR, RESULT_DIR, MODEL_DIR, MAE_THRESHOLD, RMSE_THRESHOLD
 from data_loader import load_and_process
@@ -11,6 +12,13 @@ from utils import (
     load_scaler, save_scaler, calculate_metrics, needs_retraining,
     plot_prediction, get_img
 )
+from dotenv import load_dotenv
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+
+
+load_dotenv("D:/workspace/fastapi/AIOps/project/Yesiki/env_sample.env")
+
 
 app = FastAPI()
 router = APIRouter()
@@ -71,12 +79,58 @@ async def upload(file: UploadFile = File(...)):
             results[f"{fish_name}_결과_이미지"] = encoded_img
             results[f"{fish_name}_1주_발주량 예측"] = total_prediction
             results[f"{fish_name}_재학습_여부"] = int(retrained)
+        # 예시로 단순 보고서 텍스트 생성 (원하는 내용으로 대체 가능)
+        system_message = (
+            "너는 데이터모델을 사용해서 이후 7일 재료 발주량을 예측하고 "
+            "그 결과에 대해서 보고서 형태로 출력하는 업무를 수행해. "
+            "보고서에는 각 재료별 일자별 발주량 예측치를 표 형식 또는 정리된 텍스트 형식으로 제시하고, "
+            "추세나 특이사항이 있다면 간단한 코멘트도 포함해줘."
+        )
+        user_input = f"""
+        다음은 3가지 재료(광어, 연어, 장어)의 1주일(7일) 간 발주량 예측 결과입니다:
 
+        광어_1주_발주량 예측:
+        {results["광어_1주_발주량 예측"]}
+
+        연어_1주_발주량 예측:
+        {results["연어_1주_발주량 예측"]}
+
+        장어_1주_발주량 예측:
+        {results["장어_1주_발주량 예측"]}
+
+        이 데이터를 바탕으로 보고서를 작성해줘.
+
+        line 기준으로 10줄 이내로 작성해줘
+        """
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_message),
+            ("human", "{input}")
+        ])
+
+        llm = ChatOpenAI(temperature=0)
+
+        chain = prompt | llm
+
+        response = chain.invoke({
+            "input": user_input
+        })
+
+        results["보고서"] = response.content
         return JSONResponse(content=results)
 
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))  # 404 Not Found 반환
 
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))  # 500 Internal Server Error 반환
 
+# CORS 설정
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)

@@ -48,5 +48,5 @@ class MaterialForecastModel:
     def load(fish_name):
         """모델 로딩"""
         model_path = os.path.join(MODEL_DIR, fish_name, "model.h5")
-        model = load_model(model_path)
+        model = load_model(model_path,compile=False)
         return model
