@@ -18,13 +18,18 @@ from config import (
     RMSE_THRESHOLD
 )
 
-def train_single_fish(fish_name: str, target_column: str, csv_filename: str):
+def train_single_fish(fish_name: str, target_column: str, csv_filename: str = None,
+                      X=None, y=None, scaler=None):
     print(f"🐟 Start training for: {fish_name} ({target_column})")
 
-    # 1. 데이터 로딩 및 시퀀스 생성
-    X, y, scaler = load_and_process(csv_filename, target_column)
-    input_shape = X.shape[1:]   # (30, 18)
-    output_days = y.shape[1]    # 7
+    # 1. 데이터 로딩 (직접 입력 X, y, scaler가 없다면 파일에서 로딩)
+    if X is None or y is None or scaler is None:
+        if csv_filename is None:
+            raise ValueError("Either provide (X, y, scaler) or csv_filename.")
+        X, y, scaler = load_and_process(csv_filename, target_column)
+
+    input_shape = X.shape[1:] if len(X.shape) == 3 else (X.shape[1],)
+    output_days = y.shape[1] if len(y.shape) == 2 else 1
 
     # 2. 모델 초기화 및 학습
     model = MaterialForecastModel(input_shape=input_shape, output_days=output_days)
