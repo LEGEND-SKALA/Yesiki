@@ -4,20 +4,20 @@ import os
 import numpy as np
 import traceback
 
-from config import RAW_DATA_DIR, RESULT_DIR, MODEL_DIR, MAE_THRESHOLD, RMSE_THRESHOLD
-from data_loader import load_and_process
+from config import RAW_DATA_DIR, RESULT_DIR, UPLOAD_DATA_DIR, MODEL_DIR, MAE_THRESHOLD, RMSE_THRESHOLD
+from data_loader import load_and_process_new_data, load_combined_data, get_latest_input_from_raw
 from material_forecast_model import MaterialForecastModel
 from train import train_single_fish
 from utils import (
     load_scaler, save_scaler, calculate_metrics, needs_retraining,
-    plot_prediction, get_img
+    plot_prediction, get_img, inverse_transform_target_only
 )
 from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 
-load_dotenv("D:/workspace/fastapi/AIOps/project/Yesiki/env_sample.env")
+load_dotenv()
 
 
 app = FastAPI()
@@ -32,54 +32,73 @@ targets = {
 @app.post("/upload")
 async def upload(file: UploadFile = File(...)):
     try:
-        filename = file.filename
-        file_path = os.path.join(RAW_DATA_DIR, filename)
-        with open(file_path, "wb") as f:
-            f.write(await file.read())
-
         results = {}
+        upload_path = os.path.join(UPLOAD_DATA_DIR, file.filename)
 
         for fish_name, target_column in targets.items():
-            X, y, _ = load_and_process(filename, target_column)
-            retrained = False
+            print(f"\n🔍 Processing {fish_name}...")
+
+            # 1. Load 7-day uploaded data (no sequence generation)
+            try:
+                X_true_data, y_true_data, _ = load_and_process_new_data(upload_path, target_column)
+            except Exception as e:
+                results[f"{fish_name}_오류"] = f"데이터 로딩 실패: {str(e)}"
+                continue
+
+            # 2. Load model & recent data & scaler
+            raw_file_path = os.path.join(RAW_DATA_DIR, "qooqoo_dummy_v0.12.csv")
 
             try:
                 model = MaterialForecastModel.load(fish_name)
-                scaler = load_scaler(fish_name, MODEL_DIR)
-            except:
-                train_single_fish(fish_name, target_column, filename)
-                retrained = True
-                model = MaterialForecastModel.load(fish_name)
-                scaler = load_scaler(fish_name, MODEL_DIR)
+                X_input, scaler = get_latest_input_from_raw(raw_file_path, target_column)
+            except Exception as e:
+                print(f"⚠️ Model not found for {fish_name}. Skipping.")
+                results[f"{fish_name}_오류"] = str(e)
+                continue
 
-            y_pred = model.predict(X)
-            mae, rmse = calculate_metrics(y, y_pred)
+            # 3. Predict
+            y_pred = model.predict(X_input)[0]
+            mae, rmse = calculate_metrics(y_true_data, y_pred)
+            print(f"📊 MAE: {mae:.2f}, RMSE: {rmse:.2f}")
 
+            retrained = False
+
+            # 4. Check if retraining is needed
             if needs_retraining(mae, rmse, MAE_THRESHOLD, RMSE_THRESHOLD):
-                train_single_fish(fish_name, target_column, filename)
+                print(f"🔁 Retraining {fish_name} using combined 90-day dataset...")
                 retrained = True
-                model = MaterialForecastModel.load(fish_name)
-                scaler = load_scaler(fish_name, MODEL_DIR)
-                y_pred = model.predict(X)
 
-            # 이미지 저장 및 인코딩
+                X_finetune, y_finetune, scaler = load_combined_data(
+                    raw_file_path, upload_path, target_column
+                )
+
+                # 🔁 Train again (fine-tune style)
+                train_single_fish(fish_name, target_column, raw_file_path, X=X_finetune, y=y_finetune, scaler=scaler)
+
+                # Reload model and predict again
+                model = MaterialForecastModel.load(fish_name)
+                X_input, scaler = get_latest_input_from_raw(raw_file_path, target_column)
+                y_pred = model.predict(X_input)
+                retrained = True
+
+            # 5. Plot prediction image
             result_dir = os.path.join(RESULT_DIR, fish_name)
             os.makedirs(result_dir, exist_ok=True)
-            img_path = os.path.join(result_dir, "sample_prediction_api.png")
-            plot_prediction(y[:1], y_pred[:1], img_path, scaler, target_column)
+            img_path = os.path.join(result_dir, "sample_prediction_debug.png")
+            plot_prediction(y_true_data[:1], y_pred[:1], img_path, scaler, target_column)
             encoded_img = get_img(img_path)
 
-            # 예측 총합
-            y_pred_rescaled = scaler.inverse_transform(
-                np.hstack([np.zeros((y_pred.shape[1], scaler.n_features_in_ - 1)), y_pred[0].reshape(-1, 1)])
-            )[:, -1]
+            # 6. Inverse transform for total prediction
+            y_pred_rescaled = inverse_transform_target_only(y_pred, scaler)
             total_prediction = int(np.sum(y_pred_rescaled))
 
-            # 응답 결과 키로 삽입
+
+            # Store results
             results[f"{fish_name}_결과_이미지"] = encoded_img
             results[f"{fish_name}_1주_발주량 예측"] = total_prediction
             results[f"{fish_name}_재학습_여부"] = int(retrained)
-        # 예시로 단순 보고서 텍스트 생성 (원하는 내용으로 대체 가능)
+
+        # 7. Generate LLM report
         system_message = (
             "너는 데이터모델을 사용해서 이후 7일 재료 발주량을 예측하고 "
             "그 결과에 대해서 보고서 형태로 출력하는 업무를 수행해. "
@@ -102,20 +121,19 @@ async def upload(file: UploadFile = File(...)):
 
         line 기준으로 10줄 이내로 작성해줘
         """
+
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_message),
             ("human", "{input}")
         ])
-
         llm = ChatOpenAI(temperature=0)
-
         chain = prompt | llm
-
-        response = chain.invoke({
-            "input": user_input
-        })
+        response = chain.invoke({"input": user_input})
 
         results["보고서"] = response.content
+
+        print("\n📝 Generated Report:\n")
+        print(response.content)
         return JSONResponse(content=results)
 
     except FileNotFoundError as e:

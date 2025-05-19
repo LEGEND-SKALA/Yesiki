@@ -29,6 +29,9 @@ def plot_prediction(y_true, y_pred, save_path, scaler=None, target_column=None, 
     - scaler: 정규화에 사용된 MinMaxScaler
     - target_column: 복원할 열 이름 (필수)
     """
+    y_true = y_true.reshape(1, -1)
+    y_pred = y_pred.reshape(1, -1)
+
     if scaler is not None and target_column is not None:
         # (1, 7) → (7, 1) → inverse_transform 후 다시 (1, 7)
         y_true = scaler.inverse_transform(
@@ -97,3 +100,26 @@ def get_img(img_name):
         return "data:image/png;base64," + encoded.decode('ascii')
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading image: {str(e)}")
+    
+def inverse_transform_target_only(y_pred, scaler):
+    """
+    Inverse-transforms only the target column using the scaler that was trained on full feature data.
+
+    Parameters:
+    - y_pred: shape (7,), the predicted values for the target column (scaled)
+    - scaler: the full-feature MinMaxScaler used during training
+
+    Returns:
+    - y_pred_rescaled: shape (7,), the inverse-transformed prediction values
+    """
+    y_pred = y_pred.reshape(1, -1)  # (1, 7)
+
+    # Create dummy input: shape (7, total_features), fill others with zeros
+    dummy = np.zeros((y_pred.shape[1], scaler.n_features_in_))
+    dummy[:, -1] = y_pred.flatten()  # assuming target column is last
+
+    # Inverse-transform all features
+    inversed = scaler.inverse_transform(dummy)
+
+    # Return only the target column
+    return inversed[:, -1]  # shape: (7,)
